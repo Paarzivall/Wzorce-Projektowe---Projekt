@@ -1,0 +1,2 @@
+class ConnectToOracleDB(object):
+    pass
