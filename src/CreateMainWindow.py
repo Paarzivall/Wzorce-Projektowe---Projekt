@@ -6,6 +6,8 @@ from tkcalendar import DateEntry
 from src.CreateWindow import CreateWindow
 from src.ConnectToSQLdb import ConnectToSQLdb
 from src.SelectQuery import SelectQuery
+from src.InsertQuery import InsertQuery
+from src.UpdateQuery import UpdateQuery
 from src.CreateResultWindow import CreateResultWindow
 
 
@@ -17,23 +19,42 @@ class CreateMainWindow(CreateWindow):
     def add_buttons(self):
         add_button = Button(self.window, text="Dodaj nową rezerwację", command=self.add_reservation, width=40, height=3)
         add_button.place(x=145, y=190)
-        search_button = Button(self.window, text="Sprawdź dostępne auta", command=self.print, width=40, height=3)
+        search_button = Button(self.window, text="Sprawdź dostępne auta", command=self.show_free_cars, width=40, height=3)
         search_button.place(x=615, y=30)
+
+    def show_free_cars(self):
+        window = CreateResultWindow.get_instance()
+        window.start_app()
 
     def add_reservation(self):
         if self.next_step():
             self.date_end = self.formate_date()
             self.date_end = datetime.strptime(self.date_end, '%Y-%m-%d')
-            cost = self.calculate(str(self.car.get())[':':])
-            print(cost)
+            car_id = self.get_car_id()
+            cost = self.calculate(str(self.car.get())[str(self.car.get()).index(":") + 2:])
             imie_i_nazwisko = self.name.get() + " " + self.surname.get()
-            sql = "INSERT INTO rezerwacje(imie_i_nazwisko, adres, nr_telefonu, start_rezerwacji, koniec_rezerwacji, cena) " \
-                  "VALUES(" + imie_i_nazwisko + ", " + str(self.adress.get()) + ", " + str(self.phone.get()) + "," + \
-                  str(date.today()) + ", " + str(self.date_end)[:10] + ", " + str(cost) + ")"
-            print(sql)
+            sql = "INSERT INTO rezerwacje(imie_i_nazwisko, adres, nr_telefonu, start_rezerwacji, koniec_rezerwacji, cena, id_samochodu) " \
+                  "VALUES('" + imie_i_nazwisko + "', '" + str(self.adress.get()) + "', '" + str(self.phone.get()) + "','" + \
+                  str(date.today()) + "', '" + str(self.date_end)[:10] + "', '" + str(cost) + "', '" + car_id + "')"
+            query = InsertQuery()
+            self.connection = ConnectToSQLdb(query)
+            self.connection.execute_query(self.connection.get_cursor(), sql)
+            self.close_all()
+            self.update_car_status(car_id)
         else:
             Tk().wm_withdraw()  # to hide the main window
             messagebox.showinfo('Error', 'Uzupełnij Brakujące pola')
+
+    def get_car_id(self):
+        car = str(self.car.get())
+        return car[:car.index(" ")]
+
+    def update_car_status(self, car):
+        sql = "UPDATE samochody SET zarezerwowany = '1' WHERE id_samochodu=" + car
+        query = UpdateQuery()
+        self.connection = ConnectToSQLdb(query)
+        self.connection.execute_query(self.connection.get_cursor(), sql)
+        self.close_all()
 
     def next_step(self):
         if self.name.get() == '' or self.surname.get() == '' or self.adress.get() == '' or self.phone.get() == '' or self.car.get() == '' or self.date_end.get() == '':
@@ -42,15 +63,14 @@ class CreateMainWindow(CreateWindow):
             return True
 
     def calculate(self, car):
-        print(car)
         if self.date_end != datetime.strptime(str(date.today()), '%Y-%m-%d'):
-            diff = str(self.date_end - datetime.strptime(str(date.today()), '%Y-%m-%d'))[:str(self.calculate()).index(" ")]
+            tmp = str(self.date_end - datetime.strptime(str(date.today()), '%Y-%m-%d'))
+            diff = tmp[:tmp.index(" ")]
         else:
             diff = 1
-        return int(diff * int(car[car.index(':') + 1:]))
+        return int(diff) * int(car)
 
     def formate_date(self):
-        print(date.today(), type(date.today()))
         data = str(self.date_end.get())
         tmp = data.index('/')
         year = data[len(data) - 2:]
@@ -71,17 +91,21 @@ class CreateMainWindow(CreateWindow):
     def print(self):
         print("aaa")
 
-    def add_values_to_combobox(self):
-        sql = 'SELECT marka, model, cena_wypozyczenia, rok_produkcji FROM Samochody'
-        result = []
-        query_type = SelectQuery()
-        self.connection = ConnectToSQLdb.get_instance(query_type)
-        table_of_result = self.connection.execute_query(self.connection.get_cursor(), sql)
+    def close_all(self):
+        self.connection.close_cursor()
         self.connection.close_connection()
+
+    def add_values_to_combobox(self):
+        sql = 'SELECT * FROM Samochody WHERE zarezerwowany = 0'
+        tmp_table = []
+        query_type = SelectQuery()
+        self.connection = ConnectToSQLdb(query_type)
+        table_of_result = self.connection.execute_query(self.connection.get_cursor(), sql)
+        self.close_all()
         for res in table_of_result:
-            tmp = str(res[0]) + " " + str(res[1]) + " - Rok prod.(" + str(res[3]) + ") - Cena za dzień: " + str(res[2])
-            result.append(tmp)
-        return result
+            tmp = str(res[0]) + " " + str(res[1]) + " " + str(res[2]) + " - Rok prod.(" + str(res[3]) + ") - Cena za dzień: " + str(res[4])
+            tmp_table.append(tmp)
+        return tmp_table
 
     def add_other_components(self):
         value = StringVar()
