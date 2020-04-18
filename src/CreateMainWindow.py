@@ -8,6 +8,7 @@ from src.SelectQuery import SelectQuery
 from src.InsertQuery import InsertQuery
 from src.UpdateQuery import UpdateQuery
 from src.CreateResultWindow import CreateResultWindow
+from src.CreateDeleteWindow import CreateDeleteWindow
 from src.Iterator import Iterator
 
 
@@ -21,6 +22,13 @@ class CreateMainWindow(CreateWindow):
         add_button.place(x=145, y=250)
         search_button = Button(self.window, text="Sprawdź zarezerwowane auta", command=self.show_free_cars, width=40, height=3)
         search_button.place(x=615, y=30)
+
+        delete_button = Button(self.window, text="Usuń rezerwacje", command=self.delete_window, width=40, height=3)
+        delete_button.place(x=145, y=350)
+
+    def delete_window(self):
+        window = CreateDeleteWindow()
+        window.start_app()
 
     def show_free_cars(self):
         window = CreateResultWindow.get_instance()
@@ -48,7 +56,7 @@ class CreateMainWindow(CreateWindow):
         self.connection = ConnectToSQLdb(query)
         client_id = self.connection.execute_query(self.connection.get_cursor(), sql)
         self.close_all()
-        return client_id
+        return client_id[0][0]
 
     def check_client(self):
         sql = "SELECT * FROM klienci WHERE email = '" + str(self.mail.get()) + "'"
